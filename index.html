@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>GMV 預測模型說明書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: 單欄文件式說明書，頂部固定分頁導覽；介面預覽區以可操作的儀表板示意呈現 */
+:root{
+  --bg:#f7f5f3; --surface:#ffffff; --sunk:#efebe7;
+  --fg:#221c19; --muted:#6c615b; --line:#e2dbd5;
+  --accent:#d9481f; --accent-soft:#fbe7df; --accent-fg:#ffffff;
+  --forecast:#5a6b8c; --good:#2f7d4f; --warn:#b26a00;
+  --dev:#d9481f; --hold:#5a6b8c;
+  --f-display:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171311; --surface:#211c19; --sunk:#2a2420;
+  --fg:#f1ebe6; --muted:#a99d95; --line:#3a322d;
+  --accent:#f0683f; --accent-soft:#3b231a; --accent-fg:#1a0f0a;
+  --forecast:#9fb1d4; --good:#6cc28f; --warn:#e3a44a;
+  --dev:#f0683f; --hold:#9fb1d4; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171311; --surface:#211c19; --sunk:#2a2420;
+  --fg:#f1ebe6; --muted:#a99d95; --line:#3a322d;
+  --accent:#f0683f; --accent-soft:#3b231a; --accent-fg:#1a0f0a;
+  --forecast:#9fb1d4; --good:#6cc28f; --warn:#e3a44a;
+  --dev:#f0683f; --hold:#9fb1d4; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15.5px;line-height:1.75}
+.wrap{max-width:920px;margin:0 auto;padding-inline:20px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.3;margin:0}
+p{margin:0}
+code,.mono{font-family:var(--f-mono);font-size:.9em}
+code{background:var(--sunk);padding:1px 6px;border-radius:4px}
+
+/* hero */
+.hero{padding-block:56px 36px;border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(30px,5.4vw,46px);font-weight:900;letter-spacing:.01em}
+.hero p.lead{margin-top:14px;color:var(--muted);font-size:16.5px}
+.biz{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.biz span{font-family:var(--f-mono);font-size:13px;border:1px solid var(--line);background:var(--surface);padding:4px 12px;border-radius:999px}
+
+/* nav */
+nav.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+nav.toc .wrap{display:flex;gap:4px;overflow-x:auto;padding-block:8px}
+nav.toc a{white-space:nowrap;color:var(--muted);text-decoration:none;font-size:14px;padding:6px 12px;border-radius:6px}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--fg);background:var(--sunk);outline:none}
+
+/* dashboard link */
+.dash-link{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 20px;margin-top:32px;padding:16px 20px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.dash-link>div{min-width:0}
+.dash-link b{display:block;font-size:16.5px}
+.dash-link span{color:var(--muted);font-size:14.5px}
+.btn{display:inline-block;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:14.5px;text-decoration:none;padding:8px 18px;border-radius:8px;white-space:nowrap}
+.btn:hover{filter:brightness(1.08)}
+.btn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.dash-link+section{padding-top:36px}
+
+section{padding-block:52px 8px;scroll-margin-top:56px}
+section>h2{font-size:26px;font-weight:900;display:flex;align-items:baseline;gap:12px}
+section>h2 .n{font-family:var(--f-mono);font-size:14px;color:var(--accent);font-weight:600}
+.sub{color:var(--muted);margin-top:6px}
+h3{font-size:18px;font-weight:700;margin-top:34px}
+.body-text{margin-top:10px}
+.tbl+p.body-text.lead-in{margin-top:28px}
+ol.body-text,ul.body-text{padding-left:1.2em}
+ol.body-text li,ul.body-text li{margin-bottom:4px}
+
+/* steps */
+.steps{display:grid;gap:14px;margin-top:22px}
+.step{display:grid;grid-template-columns:40px 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.step .num{width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font-family:var(--f-mono);font-weight:600;display:grid;place-items:center}
+.step h4{margin:0;font-size:16.5px}
+.step p{color:var(--muted);margin-top:4px}
+.step>div{min-width:0}
+
+/* feature list */
+.features{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:22px}
+@media (max-width:820px){.features{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.features{grid-template-columns:1fr}}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.feat h4{margin:0 0 4px;font-size:15.5px;line-height:1.45}
+.feat p{color:var(--muted);font-size:14.5px}
+
+/* tables */
+.tbl{overflow-x:auto;margin-top:16px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+.tbl.wide table{min-width:700px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12.5px;color:var(--muted);font-weight:500;letter-spacing:.04em;background:var(--sunk)}
+tr:last-child td{border-bottom:none}
+td.nw,th.nw{white-space:nowrap}
+td.dash{color:var(--muted)}
+
+.note{margin-top:16px;padding:14px 16px;border-radius:8px;background:var(--accent-soft);font-size:14.5px}
+.note b{color:var(--accent)}
+
+/* 來源標籤 */
+.src{display:inline-block;border-radius:4px;padding:0 7px;font-size:12px;font-weight:700;line-height:1.7;white-space:nowrap}
+.src.official{background:color-mix(in srgb,var(--good) 16%,var(--surface));color:var(--good)}
+.src.prelim{background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
+.src.backtest{background:var(--sunk);color:var(--muted)}
+
+/* dashboard mock */
+.mock{margin-top:22px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.mock-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--sunk);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.mock-bar i{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
+.mock-bar .tag{margin-left:auto;font-family:var(--f-mono);font-size:11.5px;border:1px dashed var(--muted);padding:1px 8px;border-radius:4px}
+.mock-in{padding:20px;display:grid;gap:18px}
+.mock-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.mock-head h4{margin:0;font-size:18px}
+.runinfo{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;font-size:13px;color:var(--muted)}
+.runinfo .chip{background:var(--fg);color:var(--surface);border-radius:6px;padding:1px 8px;font-weight:700}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:13.5px;background:transparent;color:var(--fg);border:0;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.seg button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+select{font:inherit;font-size:13.5px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.pills{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.pill{background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 10px;font-weight:500}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.kpis{grid-template-columns:1fr}}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.kpi .l{font-size:12.5px;color:var(--muted)}
+.kpi .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;margin-top:4px}
+.kpi .v.empty{color:var(--muted)}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.7}
+.kpi.hl{border-color:var(--accent)}
+.up{color:var(--good)} .down{color:var(--accent)}
+.chart-box{border:1px solid var(--line);border-radius:10px;padding:12px 12px 6px;overflow-x:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);padding:0 4px 6px}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--c)}
+.legend .dash::before{background:repeating-linear-gradient(90deg,var(--c) 0 5px,transparent 5px 8px)}
+.legend .dia::before{width:8px;height:8px;transform:rotate(45deg);margin-right:8px}
+svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.callouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
+.callout{font-size:14px;color:var(--muted);border-top:2px solid var(--fg);padding-top:8px}
+.callout b{color:var(--fg);display:block}
+
+/* walk-forward grid */
+.wf{margin-top:18px;overflow-x:auto;padding-bottom:6px}
+.wf-row{display:grid;grid-template-columns:118px repeat(21,minmax(21px,1fr));gap:3px;align-items:center;min-width:640px;font-size:12px}
+.wf-row .lab{color:var(--muted);font-family:var(--f-mono)}
+.cell{height:20px;border-radius:3px;background:var(--sunk)}
+.cell.tr{background:color-mix(in srgb,var(--dev) 35%,var(--sunk))}
+.cell.pd{background:var(--dev)}
+.cell.tr2{background:color-mix(in srgb,var(--hold) 35%,var(--sunk))}
+.cell.pd2{background:var(--hold)}
+.wf-row .h{font-family:var(--f-mono);font-size:10.5px;color:var(--muted);text-align:center}
+#wfRows{display:grid;gap:4px}
+.wf-key{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);margin-top:10px}
+.wf-key span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+
+/* formula blocks */
+.formula{font-family:var(--f-mono);font-size:14px;background:var(--sunk);border-radius:8px;padding:12px 16px;margin-top:10px;overflow-x:auto;white-space:nowrap}
+.metrics{display:grid;gap:12px;margin-top:20px}
+.metric{display:grid;grid-template-columns:minmax(150px,210px) 1fr;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.metric h4{margin:0;font-size:16px}
+.metric .en{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.metric>div{min-width:0}
+.metric p{color:var(--muted);font-size:14.5px}
+.metric .formula{margin-top:8px}
+@media (max-width:620px){.metric{grid-template-columns:1fr;gap:6px}}
+
+footer{margin-top:60px;border-top:1px solid var(--line);padding-block:24px 40px;color:var(--muted);font-size:13px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>GMV 預測模型說明書</h1>
+    <p class="lead">以迴歸模型預測 C2C、Mall、B2C 三個 Biz Type 的全月 GMV：先用相關係數篩選因子，再以歷史資料逐月模擬預測，選出誤差最低的因子組合。儀表板可以查看全月預估、MTD 實際、校正後全月預估，以及逐月與每日的實際 vs 預估。</p>
+    <div class="biz"><span>C2C</span><span>Mall</span><span>B2C</span><span>All biz type</span></div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="章節">
+  <div class="wrap">
+    <a href="#guide">操作說明</a>
+    <a href="#features">功能介紹</a>
+    <a href="#preview">介面預覽</a>
+    <a href="#logic">模型邏輯</a>
+    <a href="#metrics">指標說明</a>
+    <a href="#other">其他</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- 儀表板連結 -->
+<div class="dash-link">
+  <div>
+    <b>GMV 預測儀表板</b>
+    <span>查看各 Biz Type 的預估、MTD 實際與每日明細</span>
+  </div>
+  <a class="btn" href="https://script.google.com/a/macros/shopee.com/s/AKfycbw_DL8WRsTtstu8-16R-PuIHxxRwu1LbsAvMBmtWB8Fy26tu4Gb8HUdMooMHA-B6FJi/exec" target="_blank" rel="noopener">開啟儀表板 ↗</a>
+</div>
+
+<!-- 1 操作說明 -->
+<section id="guide">
+  <h2><span class="n">01</span>操作說明</h2>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div>
+      <h4>更新資料集</h4>
+      <p>將最新的每日 GMV 資料（含日期、<code>Biz Type</code>、<code>Day Type</code>、<code>ttl_gmv</code> 欄位）存成 <code>data.csv</code>，覆蓋專案資料夾裡的舊檔。</p>
+    </div></div>
+    <div class="step"><div class="num">2</div><div>
+      <h4>執行模型</h4>
+      <p>在專案資料夾的終端機執行 <code>python3 analysis.py</code>（Windows 為 <code>py analysis.py</code>）。終端機會顯示「本次執行：○○（資料截止 ○○）」，請確認資料截止日正確。</p>
+    </div></div>
+    <div class="step"><div class="num">3</div><div>
+      <h4>匯入 Google Sheet</h4>
+      <p>把 <code>output</code> 資料夾裡的四份 CSV 匯入同名分頁：<code>monthly_predictions</code>、<code>daily_forecast</code>、<code>mtd_summary</code>、<code>factor_summary</code>。每個分頁都用「檔案 → 匯入 → 上傳」，匯入位置選「取代目前的工作表」。</p>
+    </div></div>
+    <div class="step"><div class="num">4</div><div>
+      <h4>重新整理儀表板</h4>
+      <p>儀表板只在開啟時讀一次資料，匯入後要重新整理頁面。頁面頂端的「資料更新至 ○○」應該和終端機顯示的資料截止日相同。</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- 2 功能介紹 -->
+<section id="features">
+  <h2><span class="n">02</span>功能介紹</h2>
+  <div class="features">
+    <div class="feat"><h4>全月預估（日均）</h4><p>模型對該月份全月 GMV 的預估，換算成每天平均的金額。</p></div>
+    <div class="feat"><h4>MTD 實際（日均）</h4><p>當月 1 日到資料截止日的實際 GMV，換算成每天平均的金額。</p></div>
+    <div class="feat"><h4>校正係數與校正後全月預估（日均）</h4><p>校正係數 = MTD 實際 ÷ 同期間的預估，大於 1 代表目前比預估快。校正後全月預估 = MTD 實際 + 剩餘天數預估 × 校正係數。</p></div>
+    <div class="feat"><h4>逐月實際 vs 預估（日均 GMV）</h4><p>以折線圖比較每個月的實際與預估，用來看長期趨勢和預估準不準。</p></div>
+    <div class="feat"><h4>每日實際 vs 預估</h4><p>以圖表比較選定月份每一天的實際與預估，用來看哪幾天和預估差最多。</p></div>
+    <div class="feat"><h4>每日明細</h4><p>以表格列出選定月份每一天的預估與實際 GMV。</p></div>
+  </div>
+</section>
+
+<!-- 3 介面預覽 -->
+<section id="preview">
+  <h2><span class="n">03</span>介面預覽</h2>
+
+  <div class="mock" role="figure" aria-label="儀表板示意畫面">
+    <div class="mock-bar"><i></i><i></i><i></i><span>GMV 預測儀表板 · Google Sheets</span><span class="tag">示意數據</span></div>
+    <div class="mock-in">
+      <div class="mock-head">
+        <div>
+          <h4>GMV 預測儀表板</h4>
+          <div class="runinfo"><span class="chip">資料更新至 2026-11-19</span><span>校正預估＋初始預估</span></div>
+        </div>
+        <div class="filters">
+          <div class="seg" id="bizSeg" role="group" aria-label="Biz Type">
+            <button type="button" data-b="All" aria-pressed="true">All</button>
+            <button type="button" data-b="C2C" aria-pressed="false">C2C</button>
+            <button type="button" data-b="Mall" aria-pressed="false">Mall</button>
+            <button type="button" data-b="B2C" aria-pressed="false">B2C</button>
+          </div>
+          <select id="monthSel" aria-label="月份">
+            <option value="17">2026-12（初始預估）</option>
+            <option value="16" selected>2026-11（當月）</option>
+            <option value="15">2026-10</option>
+            <option value="14">2026-09</option>
+          </select>
+        </div>
+      </div>
+      <div class="pills" id="pills"></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="chart-box">
+        <div class="legend"><span style="--c:var(--fg)">實際 GMV</span><span class="dash" style="--c:var(--accent)">預估 GMV</span><span class="dia" style="--c:var(--forecast)">最後校正預估</span></div>
+        <svg id="chart" viewBox="0 0 760 250" width="100%" style="min-width:560px" role="img" aria-label="預估與實際日均 GMV 逐月趨勢"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><b>資料更新標籤</b>顯示這次資料的截止日與執行類型，用來確認儀表板讀到的是最新資料。</div>
+    <div class="callout"><b>月份選單</b>預設選取當月。下個月標示「初始預估」，過去月份可以回顧。</div>
+    <div class="callout"><b>因子標籤</b>顯示該月份預估當時採用的因子，不會因為之後重跑而改變。</div>
+    <div class="callout"><b>四張指標卡</b>內容隨月份狀態改變：下個月、當月、過去月份各有不同。</div>
+    <div class="callout"><b>趨勢圖</b>數值為日均 GMV。色帶為預測區間，菱形為該月最後一次的校正預估。</div>
+  </div>
+</section>
+
+<!-- 4 模型邏輯 -->
+<section id="logic">
+  <h2><span class="n">04</span>模型邏輯</h2>
+
+  <h3>步驟 1　定義候選因子</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>因子</th><th>定義</th></tr></thead>
+    <tbody>
+      <tr><td>上個月 GMV</td><td>目標月前一個月（t−1）的 GMV</td></tr>
+      <tr><td>近三個月 GMV 平均</td><td>t−1、t−2、t−3 三個月 GMV 的平均</td></tr>
+      <tr><td>去年同期 GMV</td><td>目標月去年同月（t−12）的 GMV</td></tr>
+      <tr><td>MoM 月成長率</td><td>(t−1 − t−2) ÷ t−2</td></tr>
+      <tr><td>YoY 年成長率</td><td>(t−1 − t−13) ÷ t−13，也就是上個月相對於去年同月的成長率</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>步驟 2　相關係數篩選</h3>
+  <p class="body-text">以 2025-01 起的所有完整月份，計算各 Biz Type 中的每個候選因子與實際 GMV 的相關係數，最後於各 Biz Type 中排除相關係數 |r| &lt; 0.44 的因子，其餘作為訓練因子。</p>
+  <div class="formula">r = Σ(x − x̄)(y − ȳ) ÷ √[ Σ(x − x̄)² × Σ(y − ȳ)² ]</div>
+  <p class="body-text" style="color:var(--muted);font-size:14px">x 為因子值、y 為實際 GMV，x̄、ȳ 為各自的平均值；r 介於 −1 到 1，越接近 ±1 關聯越強。</p>
+  <p class="body-text">以 2026-10 的預估為例，各 Biz Type 經過篩選後留下的因子如下：</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Biz Type</th><th>篩選後留下的因子</th></tr></thead>
+    <tbody>
+      <tr><td>C2C</td><td>YoY 年成長率</td></tr>
+      <tr><td>Mall</td><td>上個月 GMV、近三個月 GMV 平均</td></tr>
+      <tr><td>B2C</td><td>上個月 GMV、近三個月 GMV 平均、MoM 月成長率</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>步驟 3　選定因子組合</h3>
+  <p class="body-text">將篩選後的因子組成多種組合，以 2025-01 至最近一個完整月份的歷史資料逐月進行模擬預測，並計算各組合的平均誤差率。最後以誤差率最低的組合，作為各 Biz Type 的預測因子。</p>
+  <div class="wf" aria-label="逐月模擬預測示意">
+    <div class="wf-row" id="wfHead"></div>
+    <div id="wfRows"></div>
+  </div>
+  <div class="wf-key">
+    <span style="--c:color-mix(in srgb,var(--dev) 35%,var(--sunk))">用來預測的月份</span>
+    <span style="--c:var(--dev)">被預測的月份</span>
+  </div>
+  <ul class="body-text">
+    <li>依照相關係數篩選後的結果，列出各 Biz Type 中所有可能的因子組合，每一個組合都將進行模擬預測。</li>
+    <li>針對各 Biz Type 中每種組合，以第 1～6 月資料預測第 7 月、第 1～7 月資料預測第 8 月⋯依此類推至最後一個完整月份；每次預測都會產生一個誤差值，將同一組合的所有誤差值取平均。</li>
+    <li>比較各組合之平均誤差，取誤差最低之組合，作為該 Biz Type 之預測因子。</li>
+  </ul>
+  <p class="body-text">因子組合在每次產出正式預估時重新挑選，所以不同月份可能採用不同的因子。2026-10 正式預估選定的預測因子如下，其他月份以儀表板的因子標籤為準。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Biz Type</th><th>2026-10 選定的預測因子</th></tr></thead>
+    <tbody>
+      <tr><td>C2C</td><td>YoY 年成長率</td></tr>
+      <tr><td>Mall</td><td>上個月 GMV + 近三個月 GMV 平均</td></tr>
+      <tr><td>B2C</td><td>上個月 GMV</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>步驟 4　正式預估（每月 1 號）</h3>
+  <p class="body-text">針對各 Biz Type，用最終選定的因子組合，以全部月份計算出一條迴歸公式；每次預測時，代入以目標月為基準計算的因子數值，計算出下個月的 GMV 預測值。</p>
+  <div class="formula">全月預估 = 截距 + Σ（係數 × 因子值）</div>
+
+  <h3>步驟 5　每日預估</h3>
+  <p class="body-text">將每一天歸類到對應的 Day Type，再依照最近 3 個完整月份各 Day Type 的業績占比，把全月預估分配到每一天。</p>
+  <ol class="body-text">
+    <li>取目標月之前最近 3 個完整月份，算出各 Day Type 占當月業績的百分比。</li>
+    <li>百分比 ÷ 該月這個 Day Type 的天數，換算成「每一天」的占比。</li>
+    <li>3 個月的每天占比取平均（某 Day Type 某月沒出現時，只平均有出現的月份）。</li>
+    <li>把目標月每一天標上 Day Type，填入對應的每天占比。</li>
+    <li>加總所有天的占比，再把每天的占比 ÷ 加總，讓全月合計為 100%。</li>
+    <li>全月預估 × 每天調整後占比 = 每日預估。</li>
+  </ol>
+</section>
+
+<!-- 5 指標說明 -->
+<section id="metrics">
+  <h2><span class="n">05</span>相關指標說明</h2>
+  <p class="sub">模型篩選與儀表板上出現的指標。</p>
+  <div class="metrics">
+    <div class="metric"><div><h4>日均 GMV</h4><div class="en">Average daily GMV</div></div><div>
+      <p>儀表板上的金額都以日均顯示，方便比較天數不同的月份，也方便比較 MTD 與全月。</p>
+      <div class="formula">日均 GMV = 金額 ÷ 對應的天數</div>
+    </div></div>
+    <div class="metric"><div><h4>初始預估</h4><div class="en">Preliminary forecast</div></div><div>
+      <p>前一個月 19～20 號產出的下個月預估。上個月 GMV 以當月的校正後全月預估代入，下個月 1 號會被正式預估取代。</p>
+    </div></div>
+    <div class="metric"><div><h4>正式預估</h4><div class="en">Official forecast</div></div><div>
+      <p>每月 1 號用上個月的完整資料產出的全月預估。產出後鎖定，是儀表板「全月預估」卡片顯示的數字。</p>
+    </div></div>
+    <div class="metric"><div><h4>MTD 實際</h4><div class="en">Month-to-date actual</div></div><div>
+      <p>當月 1 日到資料截止日的實際 GMV 加總。</p>
+    </div></div>
+    <div class="metric"><div><h4>校正係數</h4><div class="en">MTD actual ÷ forecast</div></div><div>
+      <p>大於 1 代表目前跑得比預估快，小於 1 代表比預估慢。會用來校正剩餘天數的預估。</p>
+      <div class="formula">校正係數 = MTD 實際 ÷ 同期間每日預估加總</div>
+    </div></div>
+    <div class="metric"><div><h4>校正後全月預估</h4><div class="en">Corrected full-month</div></div><div>
+      <p>已經發生的天數用實際值，尚未發生的天數用預估值乘上校正係數。All biz type 為三個 Biz Type 校正值相加。</p>
+      <div class="formula">校正後全月預估 = MTD 實際 + 剩餘天數每日預估加總 × 校正係數</div>
+    </div></div>
+    <div class="metric"><div><h4>最後校正預估</h4><div class="en">Last corrected forecast</div></div><div>
+      <p>一個月份最後一次執行時的校正後全月預估，通常是 19～20 號那次。月份結束後保留下來，用來比較月中校正是否比正式預估更準。</p>
+    </div></div>
+    <div class="metric"><div><h4>預估誤差</h4><div class="en">Forecast error</div></div><div>
+      <p>過去月份的實際與預估的差距。正值代表實際高於預估。</p>
+      <div class="formula">預估誤差 = (實際 − 預估) ÷ 預估</div>
+    </div></div>
+    <div class="metric"><div><h4>相關係數 r</h4><div class="en">Pearson correlation</div></div><div>
+      <p>衡量因子值（x）與實際 GMV（y）的波動方向是否一致，範圍 −1 到 1。分子看兩者是否同漲同跌，分母做標準化。|r| &lt; 0.44 的因子會被排除。</p>
+      <div class="formula">r = Σ(x − x̄)(y − ȳ) ÷ √[ Σ(x − x̄)² × Σ(y − ȳ)² ]</div>
+    </div></div>
+    <div class="metric"><div><h4>MAPE</h4><div class="en">Mean Absolute Percentage Error</div></div><div>
+      <p>平均絕對百分比誤差，數字越小越準。例如 MAPE 10% 代表預測平均偏離實際約一成。</p>
+      <div class="formula">MAPE = 平均( |實際 − 預測| ÷ 實際 ) × 100%</div>
+    </div></div>
+    <div class="metric"><div><h4>預測區間</h4><div class="en">± error range</div></div><div>
+      <p>以模型在最近 3 個完整月份的平均誤差率（MAPE）當作誤差範圍，表示實際值大致會落在的區間。</p>
+      <div class="formula">預測區間 = 預測值 × (1 ± MAPE)</div>
+    </div></div>
+  </div>
+</section>
+
+<!-- 6 其他 -->
+<section id="other">
+  <h2><span class="n">06</span>其他</h2>
+  <p class="body-text">每個月執行三次，每次的操作步驟都相同。程式會依資料的最後一天，自動判斷這次要做哪一種預估，不需要修改程式。</p>
+  <div class="tbl wide"><table>
+    <thead><tr><th class="nw">執行日</th><th><code>data.csv</code> 最後一天</th><th>程式自動做的事</th><th>終端機顯示的執行類型</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">每月 1 號</td><td>上個月月底</td><td>產出當月的正式預估與每日預估，之後鎖定。上個月的預估同時凍結。</td><td>正式預估</td></tr>
+      <tr><td class="nw">每月 15 號左右</td><td>當月 1～17 號</td><td>全月預估沿用 1 號的結果，只更新 MTD 實際、校正係數、校正後全月預估。</td><td>校正預估</td></tr>
+      <tr><td class="nw">每月 19～20 號</td><td>當月 18 號以後</td><td>再更新一次當月的校正值，並產出下個月的初始預估。</td><td>校正預估＋初始預估</td></tr>
+    </tbody>
+  </table></div>
+  <p class="body-text lead-in">以目標月 M 為例，每次執行後在月份選單選 M 月時，四張指標卡顯示的內容如下。</p>
+  <div class="tbl wide"><table>
+    <thead><tr><th class="nw">執行日</th><th>① 全月預估</th><th>② 第二張</th><th>③ 第三張</th><th>④ 第四張</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">M−1 月 19～20 號</td><td>初始預估</td><td class="dash">—<br>月份尚未開始</td><td class="dash">—<br>月份尚未開始</td><td class="dash">—<br>月份尚未開始</td></tr>
+      <tr><td class="nw">M 月 1 號</td><td>正式預估</td><td class="dash">—<br>尚無本月 MTD 資料</td><td class="dash">—<br>尚無本月 MTD 資料</td><td class="dash">—<br>尚無本月 MTD 資料</td></tr>
+      <tr><td class="nw">M 月 15 號</td><td>同 1 號</td><td>MTD 實際<br>（1～14 號）</td><td>校正係數</td><td>校正後全月預估<br>（第一次）</td></tr>
+      <tr><td class="nw">M 月 19～20 號</td><td>同 1 號</td><td>MTD 實際<br>（1～18 或 19 號）</td><td>校正係數<br>（重算）</td><td>校正後全月預估<br>（第二次）</td></tr>
+      <tr><td class="nw">M+1 月 1 號之後</td><td>同 1 號<br>（已凍結）</td><td>實際 GMV</td><td>正式預估誤差</td><td>最後校正預估<br>（第二次的值）</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>GMV 預測模型 · 內部使用說明 · 最後更新 2026-10</footer>
+</main>
+
+<script>
+(function(){
+  // 示意資料（非實際業績），單位：萬／日。假設資料更新至 2026-11-19
+  const months=["25-07","25-08","25-09","25-10","25-11","25-12","26-01","26-02","26-03","26-04","26-05","26-06","26-07","26-08","26-09","26-10","26-11","26-12"];
+  const CUR=16, NEXT=17, MTD_DAYS=19, CUR_DAYS=30;
+  const CUTOFF={17:"2026-11-19",16:"2026-10-31",15:"2026-09-30"};
+  const BIZ=["C2C","Mall","B2C"];
+  const D={
+    C2C:{f:["YoY 年成長率"],mape:.05,
+      act:[42,45,43,51,47,49,44,40,46,45,48,47,49,48,47,50,null,null],
+      fc:[44,43,46,45,49,48,47,43,43,47,46,49,47,50,49.2,48.5,49.0,47.6],
+      cor:{15:49.6},mtd:50.8,mtdF:51.6},
+    Mall:{f:["上個月 GMV","近三個月 GMV 平均"],mape:.04,
+      act:[61,64,66,70,78,74,69,63,68,71,73,76,78,81,80,84,null,null],
+      fc:[59,62,65,68,72,76,72,66,66,70,72,74,77,79,82.5,81.2,83.4,85.0],
+      cor:{15:83.1},mtd:88.9,mtdF:86.0},
+    B2C:{f:["上個月 GMV"],mape:.09,
+      act:[30,31,33,32,35,34,33,31,34,33,35,44,47,50,52,55,null,null],
+      fc:[29,30,31,33,32,35,34,33,31,34,33,35,44,47,51.0,52.8,55.6,56.1],
+      cor:{15:54.3},mtd:60.2,mtdF:57.9}
+  };
+  BIZ.forEach(b=>{const d=D[b];
+    d.lo=d.fc.map(v=>v*(1-d.mape)); d.hi=d.fc.map(v=>v*(1+d.mape));
+    d.cor[CUR]=d.fc[CUR]*d.mtd/d.mtdF;          // 校正後全月 = 全月預估 × 校正係數
+    d.rest=(d.fc[CUR]*CUR_DAYS-d.mtdF*MTD_DAYS)/(CUR_DAYS-MTD_DAYS);
+  });
+  const sum=f=>BIZ.reduce((s,b)=>s+f(D[b]),0);
+  D.All={f:null,
+    act:months.map((_,i)=>D.C2C.act[i]==null?null:sum(d=>d.act[i])),
+    fc:months.map((_,i)=>sum(d=>d.fc[i])), lo:months.map((_,i)=>sum(d=>d.lo[i])), hi:months.map((_,i)=>sum(d=>d.hi[i])),
+    cor:{15:sum(d=>d.cor[15]),16:sum(d=>d.cor[16])}, mtd:sum(d=>d.mtd), mtdF:sum(d=>d.mtdF), rest:sum(d=>d.rest)};
+
+  const $=id=>document.getElementById(id);
+  const state={biz:"All",m:CUR};
+  const fmt=v=>v.toFixed(1)+" 萬";
+  const full=i=>"20"+months[i];
+  const sign=v=>'<span class="'+(v>=0?"up":"down")+'">'+(v>=0?"+":"")+(v*100).toFixed(1)+"%</span>";
+  const srcOf=i=>i===NEXT?["prelim","初始預估"]:i>=15?["official","正式發布"]:["backtest","回測"];
+  const empty=(l,s)=>({l:l,v:"—",s:s,empty:true});
+
+  function cards(){
+    const d=D[state.biz], i=state.m, src=srcOf(i);
+    let s1="區間 "+fmt(d.lo[i])+" ~ "+fmt(d.hi[i])+'<br><span class="src '+src[0]+'">'+src[1]+'</span> <span style="white-space:nowrap">資料截止 '+(CUTOFF[i]||"2026-09-30")+"</span>";
+    if(i===NEXT) s1+="<br>上月以校正推估 "+fmt(d.cor[CUR])+" 代入";
+    const out=[{l:full(i)+" 全月預估（日均）",v:fmt(d.fc[i]),s:s1}];
+    if(i===NEXT){
+      ["MTD 實際（日均）","校正係數","校正後全月預估（日均）"].forEach(l=>out.push(empty(l,"月份尚未開始")));
+    }else if(i===CUR){
+      const k=d.mtd/d.mtdF;
+      out.push({l:"MTD 實際（日均）",v:fmt(d.mtd),s:"2026-11-01 ~ 2026-11-19（19 天）<br>同期預估（日均）"+fmt(d.mtdF)});
+      out.push({l:"校正係數",v:k.toFixed(3),s:"MTD 實際 ÷ MTD 預估<br>實際比預估 "+sign(k-1)});
+      out.push({l:"校正後全月預估（日均）",v:fmt(d.cor[i]),hl:true,
+        s:"較原預估 "+sign(d.cor[i]/d.fc[i]-1)+"｜資料截止 2026-11-19<br>= MTD 實際 + 剩餘 11 天預估（日均 "+fmt(d.rest)+"）× 校正係數"});
+    }else{
+      const err=(d.act[i]-d.fc[i])/d.fc[i], inR=d.act[i]>=d.lo[i]&&d.act[i]<=d.hi[i];
+      out.push({l:"實際 GMV（日均）",v:fmt(d.act[i]),s:"完整月份"});
+      out.push({l:(src[0]==="backtest"?"回測":"正式")+"預估誤差",v:sign(err),s:"(實際 − 預估) ÷ 預估<br>"+(inR?"落在預測區間內":"超出預測區間")});
+      if(d.cor[i]!=null){
+        const ce=(d.act[i]-d.cor[i])/d.cor[i];
+        out.push({l:"最後校正預估（日均）",v:fmt(d.cor[i]),hl:true,
+          s:"資料截止 2026-10-19<br>與實際的誤差 "+sign(ce)+(Math.abs(ce)<Math.abs(err)?"（比正式預估準）":"")});
+      }else out.push(empty("最後校正預估（日均）","回測月份沒有校正值"));
+    }
+    return out;
+  }
+
+  function render(){
+    const list=state.biz==="All"?BIZ:[state.biz];
+    $("pills").innerHTML=list.map(b=>(state.biz==="All"?"<b>"+b+"</b> ":"預測因子 ")+
+      D[b].f.map(x=>'<span class="pill">'+x+"</span>").join("")).join("　");
+    $("kpis").innerHTML=cards().map(c=>'<div class="kpi'+(c.hl?" hl":"")+'"><div class="l">'+c.l+'</div><div class="v'+(c.empty?" empty":"")+'">'+c.v+'</div><div class="s">'+c.s+"</div></div>").join("");
+    drawChart(D[state.biz]);
+  }
+
+  function drawChart(d){
+    const W=760,H=250,L=44,R=18,T=18,B=30,n=months.length;
+    const vals=[...d.act.filter(v=>v!=null),...d.lo,...d.hi];
+    let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.1||5;lo=Math.floor((lo-pad)/5)*5;hi=Math.ceil((hi+pad)/5)*5;
+    const x=i=>L+i*(W-L-R)/(n-1),y=v=>T+(hi-v)*(H-T-B)/(hi-lo);
+    let s="";const step=(hi-lo)/4;
+    for(let g=0;g<=4;g++){const v=lo+g*step,yy=y(v);
+      s+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+      s+=`<text x="${L-8}" y="${yy+4}" text-anchor="end">${Math.round(v)}</text>`;}
+    months.forEach((m,i)=>{if(i%2===1)s+=`<text x="${x(i)}" y="${H-10}" text-anchor="middle">${m}</text>`;});
+    const pts=a=>a.map((v,i)=>v==null?null:[x(i),y(v)]).filter(Boolean);
+    const path=a=>pts(a).map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+    const band=[...pts(d.hi),...pts(d.lo).reverse()].map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+    s+=`<polygon points="${band}" fill="var(--accent)" fill-opacity="0.12" stroke="none"/>`;
+    const mx=x(state.m), right=state.m>n-4;
+    s+=`<line x1="${mx}" x2="${mx}" y1="${T}" y2="${H-B}" stroke="var(--muted)" stroke-dasharray="3 3"/>`;
+    s+=`<text x="${right?mx-6:mx+6}" y="${T-5}" text-anchor="${right?"end":"start"}">選取月份</text>`;
+    s+=`<path d="${path(d.fc)}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>`;
+    s+=`<path d="${path(d.act)}" fill="none" stroke="var(--fg)" stroke-width="2.2"/>`;
+    d.act.forEach((v,i)=>{if(v!=null)s+=`<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="var(--fg)"><title>${full(i)} 實際 ${v.toFixed(1)} 萬</title></circle>`;});
+    d.fc.forEach((v,i)=>{const on=i===state.m;
+      s+=`<circle cx="${x(i)}" cy="${y(v)}" r="${on?5:2.5}" fill="${on?"var(--accent)":"var(--surface)"}" stroke="var(--accent)" stroke-width="1.5"><title>${full(i)} 預估 ${v.toFixed(1)} 萬（${srcOf(i)[1]}）</title></circle>`;});
+    Object.keys(d.cor).forEach(k=>{const i=+k,cx=x(i),cy=y(d.cor[i]);
+      s+=`<rect x="${cx-4.5}" y="${cy-4.5}" width="9" height="9" transform="rotate(45 ${cx} ${cy})" fill="var(--forecast)" stroke="var(--surface)" stroke-width="1"><title>${full(i)} 最後校正預估 ${d.cor[i].toFixed(1)} 萬</title></rect>`;});
+    s+=`<text x="${L}" y="${T-5}" text-anchor="start">萬／日</text>`;
+    $("chart").innerHTML=s;
+  }
+
+  $("bizSeg").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+    document.querySelectorAll("#bizSeg button").forEach(x=>x.setAttribute("aria-pressed",x===b?"true":"false"));
+    state.biz=b.dataset.b;render();});
+  $("monthSel").addEventListener("change",e=>{state.m=+e.target.value;render();});
+  $("monthSel").value=String(CUR);
+  render();
+
+  // 逐月模擬預測示意：以 21 個完整月份為例
+  const N=21, rows=[7,8,9,null,21], marks=[1,6,7,10,15,21];
+  let head="<span></span>";
+  for(let m=1;m<=N;m++)head+='<span class="h">'+(marks.indexOf(m)>=0?m:"")+"</span>";
+  $("wfHead").innerHTML=head;
+  let h="";
+  rows.forEach(p=>{
+    if(p===null){h+='<div class="wf-row"><span class="lab">⋯</span></div>';return;}
+    h+='<div class="wf-row"><span class="lab">預測第 '+p+" 月</span>";
+    for(let m=1;m<=N;m++)h+='<span class="cell '+(m<p?"tr":m===p?"pd":"")+'"></span>';h+="</div>";});
+  $("wfRows").innerHTML=h;
+})();
+</script>
+
+</body>
+</html>
