@@ -172,6 +172,18 @@ svg text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
 .metric .formula{margin-top:8px}
 @media (max-width:620px){.metric{grid-template-columns:1fr;gap:6px}}
 
+/* 後續優化方向 */
+.road{display:grid;gap:12px;margin-top:20px}
+.road-item{display:grid;grid-template-columns:minmax(150px,210px) 1fr;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.road-item h4{margin:0;font-size:16px;min-width:0}
+.road-item dl{margin:0;min-width:0;display:grid;grid-template-columns:auto 1fr;gap:8px 12px;font-size:14.5px}
+.road-item dd{margin:0;min-width:0;color:var(--muted)}
+.road-item dt.next+dd{color:var(--fg)}
+.rt{align-self:start;margin-top:3px;border-radius:4px;padding:0 8px;font-size:12px;font-weight:700;line-height:1.8;white-space:nowrap}
+.rt.now{background:var(--sunk);color:var(--muted)}
+.rt.next{background:var(--accent-soft);color:var(--accent)}
+@media (max-width:620px){.road-item{grid-template-columns:1fr;gap:8px}}
+
 footer{margin-top:60px;border-top:1px solid var(--line);padding-block:24px 40px;color:var(--muted);font-size:13px}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 html{scroll-behavior:smooth}
@@ -194,6 +206,7 @@ html{scroll-behavior:smooth}
     <a href="#preview">介面預覽</a>
     <a href="#logic">模型邏輯</a>
     <a href="#metrics">指標說明</a>
+    <a href="#roadmap">後續優化方向</a>
     <a href="#other">其他</a>
   </div>
 </nav>
@@ -206,7 +219,7 @@ html{scroll-behavior:smooth}
     <b>GMV 預測儀表板</b>
     <span>查看各 Biz Type 的預估、MTD 實際與每日明細</span>
   </div>
-  <a class="btn" href="https://script.google.com/a/macros/shopee.com/s/AKfycbw_DL8WRsTtstu8-16R-PuIHxxRwu1LbsAvMBmtWB8Fy26tu4Gb8HUdMooMHA-B6FJi/exec" target="_blank" rel="noopener">開啟儀表板 ↗</a>
+  <a class="btn" href="https://script.google.com/a/macros/shopee.com/s/AKfycbyoHNN8UCLcyIXWqQkW-QPwHhSuNWoCnNB2BCz0rzMB1i9Jfq2Uu6bMKZAOLnb05JPnQQ/exec" target="_blank" rel="noopener">開啟儀表板 ↗</a>
 </div>
 
 <!-- 1 操作說明 -->
@@ -409,9 +422,28 @@ html{scroll-behavior:smooth}
   </div>
 </section>
 
-<!-- 6 其他 -->
+<!-- 6 後續優化方向 -->
+<section id="roadmap">
+  <h2><span class="n">06</span>後續優化方向</h2>
+  <div class="road">
+    <div class="road-item"><h4>模型自動化執行</h4><dl>
+      <dt class="rt now">目前</dt><dd>需要透過手動更新資料，才能輸出預測結果。</dd>
+      <dt class="rt next">後續</dt><dd>研究自動化機制，讓模型能自動讀取資料集、自動訓練與預測，並自動更新儀表板中的預測結果。</dd>
+    </dl></div>
+    <div class="road-item"><h4>加入日期特徵</h4><dl>
+      <dt class="rt now">目前</dt><dd>以各 Day Type 的業績占比回推每日的 GMV 預估。</dd>
+      <dt class="rt next">後續</dt><dd>加入日期特徵，讓模型能根據 Day Type 與日期做每日的業績預估。</dd>
+    </dl></div>
+    <div class="road-item"><h4>新增每年的預估</h4><dl>
+      <dt class="rt now">目前</dt><dd>可以看到 by daily 和 by month 的預估。</dd>
+      <dt class="rt next">後續</dt><dd>新增 by year 的預估。</dd>
+    </dl></div>
+  </div>
+</section>
+
+<!-- 7 其他 -->
 <section id="other">
-  <h2><span class="n">06</span>其他</h2>
+  <h2><span class="n">07</span>其他</h2>
   <p class="body-text">每個月執行三次，每次的操作步驟都相同。程式會依資料的最後一天，自動判斷這次要做哪一種預估，不需要修改程式。</p>
   <div class="tbl wide"><table>
     <thead><tr><th class="nw">執行日</th><th><code>data.csv</code> 最後一天</th><th>程式自動做的事</th><th>終端機顯示的執行類型</th></tr></thead>
